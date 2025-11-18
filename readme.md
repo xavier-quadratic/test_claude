@@ -7,9 +7,10 @@ Programme Python pour scraper le site web quadratic-labs.com et retourner la lis
 - ✅ Scraping automatique du site quadratic-labs.com
 - ✅ Récupération de toutes les pages accessibles
 - ✅ Export des résultats en JSON et TXT
-- ✅ **Visualisation de l'arborescence du site** (nouveau !)
-- ✅ **Export de la structure hiérarchique** (nouveau !)
-- ✅ **Statistiques par profondeur** (nouveau !)
+- ✅ **Visualisation de l'arborescence du site**
+- ✅ **Arborescence colorisée par profondeur** (nouveau !)
+- ✅ **Export de la structure hiérarchique**
+- ✅ **Statistiques par profondeur**
 - ✅ Gestion des erreurs de connexion
 - ✅ Respect des bonnes pratiques (délai entre requêtes)
 - ✅ Logging détaillé du processus
@@ -50,8 +51,11 @@ Cette commande va :
 ```python
 from scraper import QuadraticLabsScraper
 
-# Créer une instance du scraper
+# Créer une instance du scraper (avec couleurs activées par défaut)
 scraper = QuadraticLabsScraper()
+
+# Ou désactiver les couleurs
+# scraper = QuadraticLabsScraper(use_colors=False)
 
 # Lancer le scraping (max 100 pages, délai de 0.5s entre requêtes)
 pages = scraper.scrape(max_pages=100, delay=0.5)
@@ -65,7 +69,7 @@ for page in pages:
 scraper.save_to_json("my_results.json")
 scraper.save_to_txt("my_results.txt")
 
-# Afficher l'arborescence dans le terminal
+# Afficher l'arborescence dans le terminal (avec couleurs)
 scraper.print_tree()
 
 # Sauvegarder l'arborescence en JSON
@@ -79,11 +83,24 @@ print(f"Pages par niveau: {stats['pages_by_depth']}")
 
 ## Configuration
 
-Vous pouvez modifier les paramètres dans le fichier [scraper.py](scraper.py) :
+Vous pouvez configurer le scraper avec ces paramètres :
 
+### Paramètres du constructeur
+- `base_url` : URL de base à scraper (défaut: "https://quadratic-labs.com")
+- `use_colors` : Active/désactive la colorisation de l'arborescence (défaut: True)
+
+### Paramètres de scraping
 - `max_pages` : Nombre maximum de pages à scraper (défaut: 100)
 - `delay` : Délai en secondes entre chaque requête (défaut: 0.5)
-- `base_url` : URL de base à scraper (défaut: "https://quadratic-labs.com")
+
+### Palette de couleurs
+- **Niveau 0 (racine)** : Cyan brillant
+- **Niveau 1** : Vert
+- **Niveau 2** : Jaune
+- **Niveau 3** : Magenta
+- **Niveau 4+** : Rouge
+- **Connecteurs** : Gris dim
+- **Info profondeur** : Gris dim
 
 ## Format de sortie
 
@@ -180,6 +197,7 @@ Les erreurs sont loggées mais n'interrompent pas le processus de scraping.
 - `requests` : Pour les requêtes HTTP
 - `beautifulsoup4` : Pour le parsing HTML
 - `lxml` : Parser rapide pour BeautifulSoup
+- `colorama` : Support multi-plateforme des couleurs ANSI (Windows, Linux, macOS)
 
 ## Licence
 
@@ -190,3 +208,4 @@ Ce projet est fourni tel quel, pour usage éducatif et professionnel.
 Ce projet répond aux issues suivantes :
 - Issue #1 : [Créer un programme Python pour scraper quadratic-labs.com](https://github.com/xavier-quadratic/test_claude/issues/1)
 - Issue #3 : [Ajouter la visualisation de l'arborescence du site](https://github.com/xavier-quadratic/test_claude/issues/3)
+- Issue #5 : [Ajouter de la couleur à l'affichage de l'arborescence](https://github.com/xavier-quadratic/test_claude/issues/5)
