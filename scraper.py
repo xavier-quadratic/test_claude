@@ -10,6 +10,10 @@ from typing import Set, List, Dict, Optional
 import json
 import time
 import logging
+from colorama import Fore, Style, init
+
+# Initialise colorama pour le support Windows
+init(autoreset=True)
 
 # Configuration du logging
 logging.basicConfig(
@@ -22,13 +26,14 @@ logger = logging.getLogger(__name__)
 class QuadraticLabsScraper:
     """Scraper pour le site quadratic-labs.com"""
 
-    def __init__(self, base_url: str = "https://quadratic-labs.com"):
+    def __init__(self, base_url: str = "https://quadratic-labs.com", use_colors: bool = True):
         self.base_url = base_url
         self.domain = urlparse(base_url).netloc
         self.visited_urls: Set[str] = set()
         self.found_urls: Set[str] = set()
         self.url_hierarchy: Dict[str, Dict] = {}  # Stocke la hiérarchie parent-enfant
         self.url_depth: Dict[str, int] = {}  # Stocke la profondeur de chaque URL
+        self.use_colors = use_colors  # Active/désactive la colorisation
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -199,23 +204,45 @@ class QuadraticLabsScraper:
 
         logger.info(f"Arborescence sauvegardée dans {filename}")
 
+    def _get_color_for_depth(self, depth: int) -> str:
+        """Retourne la couleur appropriée selon la profondeur"""
+        if not self.use_colors:
+            return ""
+
+        # Palette de couleurs par profondeur
+        color_map = {
+            0: Fore.CYAN + Style.BRIGHT,      # Racine : Cyan brillant
+            1: Fore.GREEN,                     # Niveau 1 : Vert
+            2: Fore.YELLOW,                    # Niveau 2 : Jaune
+            3: Fore.MAGENTA,                   # Niveau 3 : Magenta
+        }
+
+        # Pour les profondeurs > 3, utilise rouge
+        return color_map.get(depth, Fore.RED)
+
     def _print_tree_recursive(self, url: str, prefix: str = "", is_last: bool = True):
-        """Affiche récursivement l'arborescence en format ASCII"""
+        """Affiche récursivement l'arborescence en format ASCII avec couleurs"""
         if url not in self.url_hierarchy:
             return
+
+        depth = self.url_hierarchy[url]['depth']
+        color = self._get_color_for_depth(depth)
+        connector_color = Style.DIM if self.use_colors else ""
+        depth_color = Style.DIM if self.use_colors else ""
+        reset = Style.RESET_ALL if self.use_colors else ""
 
         # Affiche l'URL courante
         connector = "+-- " if is_last else "+-- "
         if url == self.base_url:
             # Pour la racine, affiche juste l'URL
-            print(f"{url} (racine)")
+            print(f"{color}{url} (racine){reset}")
         else:
             # Simplifie l'affichage en montrant juste le chemin
             path = urlparse(url).path or '/'
             if urlparse(url).query:
                 path += f"?{urlparse(url).query}"
-            depth_info = f" [profondeur: {self.url_hierarchy[url]['depth']}]"
-            print(f"{prefix}{connector}{path}{depth_info}")
+            depth_info = f" {depth_color}[profondeur: {depth}]{reset}"
+            print(f"{connector_color}{prefix}{connector}{reset}{color}{path}{depth_info}")
 
         # Prépare le préfixe pour les enfants
         if url != self.base_url:
