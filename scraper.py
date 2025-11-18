@@ -6,7 +6,7 @@ Ce script scrappe le site web quadratic-labs.com et retourne la liste des pages 
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
-from typing import Set, List
+from typing import Set, List, Dict, Optional
 import json
 import time
 import logging
@@ -27,6 +27,8 @@ class QuadraticLabsScraper:
         self.domain = urlparse(base_url).netloc
         self.visited_urls: Set[str] = set()
         self.found_urls: Set[str] = set()
+        self.url_hierarchy: Dict[str, Dict] = {}  # Stocke la hiérarchie parent-enfant
+        self.url_depth: Dict[str, int] = {}  # Stocke la profondeur de chaque URL
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -88,11 +90,20 @@ class QuadraticLabsScraper:
         logger.info(f"Début du scraping de {self.base_url}")
 
         # Ajoute l'URL de base à la liste des URLs à visiter
-        to_visit = {self.base_url}
+        # Format: (url, parent_url, depth)
+        to_visit = [(self.base_url, None, 0)]
+
+        # Initialise la racine
+        self.url_depth[self.base_url] = 0
+        self.url_hierarchy[self.base_url] = {
+            'parent': None,
+            'children': [],
+            'depth': 0
+        }
 
         while to_visit and len(self.visited_urls) < max_pages:
-            # Prend une URL à visiter
-            current_url = to_visit.pop()
+            # Prend une URL à visiter (avec son parent et profondeur)
+            current_url, parent_url, depth = to_visit.pop(0)
 
             # Si déjà visitée, passe à la suivante
             if current_url in self.visited_urls:
@@ -102,14 +113,39 @@ class QuadraticLabsScraper:
             self.visited_urls.add(current_url)
             self.found_urls.add(current_url)
 
+            # Stocke la profondeur
+            if current_url not in self.url_depth:
+                self.url_depth[current_url] = depth
+
+            # Initialise la hiérarchie si nécessaire
+            if current_url not in self.url_hierarchy:
+                self.url_hierarchy[current_url] = {
+                    'parent': parent_url,
+                    'children': [],
+                    'depth': depth
+                }
+
+            # Ajoute l'enfant au parent
+            if parent_url and parent_url in self.url_hierarchy:
+                if current_url not in self.url_hierarchy[parent_url]['children']:
+                    self.url_hierarchy[parent_url]['children'].append(current_url)
+
             # Extrait les liens de la page
             links = self.get_links_from_page(current_url)
 
             # Ajoute les nouveaux liens à visiter
             for link in links:
                 if link not in self.visited_urls:
-                    to_visit.add(link)
+                    to_visit.append((link, current_url, depth + 1))
                     self.found_urls.add(link)
+
+                    # Initialise la hiérarchie pour le nouveau lien
+                    if link not in self.url_hierarchy:
+                        self.url_hierarchy[link] = {
+                            'parent': current_url,
+                            'children': [],
+                            'depth': depth + 1
+                        }
 
             # Délai pour ne pas surcharger le serveur
             time.sleep(delay)
@@ -138,6 +174,90 @@ class QuadraticLabsScraper:
 
         logger.info(f"Résultats sauvegardés dans {filename}")
 
+    def _build_tree_dict(self, url: str) -> Dict:
+        """Construit un dictionnaire hiérarchique récursif pour une URL"""
+        if url not in self.url_hierarchy:
+            return {}
+
+        node = {
+            'url': url,
+            'depth': self.url_hierarchy[url]['depth'],
+            'children': []
+        }
+
+        for child_url in sorted(self.url_hierarchy[url]['children']):
+            node['children'].append(self._build_tree_dict(child_url))
+
+        return node
+
+    def save_tree_to_json(self, filename: str = "quadratic_labs_tree.json"):
+        """Sauvegarde l'arborescence hiérarchique dans un fichier JSON"""
+        tree = self._build_tree_dict(self.base_url)
+
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(tree, f, indent=2, ensure_ascii=False)
+
+        logger.info(f"Arborescence sauvegardée dans {filename}")
+
+    def _print_tree_recursive(self, url: str, prefix: str = "", is_last: bool = True):
+        """Affiche récursivement l'arborescence en format ASCII"""
+        if url not in self.url_hierarchy:
+            return
+
+        # Affiche l'URL courante
+        connector = "+-- " if is_last else "+-- "
+        if url == self.base_url:
+            # Pour la racine, affiche juste l'URL
+            print(f"{url} (racine)")
+        else:
+            # Simplifie l'affichage en montrant juste le chemin
+            path = urlparse(url).path or '/'
+            if urlparse(url).query:
+                path += f"?{urlparse(url).query}"
+            depth_info = f" [profondeur: {self.url_hierarchy[url]['depth']}]"
+            print(f"{prefix}{connector}{path}{depth_info}")
+
+        # Prépare le préfixe pour les enfants
+        if url != self.base_url:
+            extension = "    " if is_last else "|   "
+            new_prefix = prefix + extension
+        else:
+            new_prefix = ""
+
+        # Affiche les enfants
+        children = sorted(self.url_hierarchy[url]['children'])
+        for i, child in enumerate(children):
+            is_last_child = (i == len(children) - 1)
+            self._print_tree_recursive(child, new_prefix, is_last_child)
+
+    def print_tree(self):
+        """Affiche l'arborescence du site dans le terminal"""
+        print(f"\n{'='*60}")
+        print(f"ARBORESCENCE DU SITE")
+        print(f"{'='*60}\n")
+
+        if not self.url_hierarchy:
+            print("Aucune arborescence disponible. Lancez d'abord le scraping.")
+            return
+
+        self._print_tree_recursive(self.base_url)
+        print()
+
+    def get_tree_stats(self) -> Dict:
+        """Retourne des statistiques sur l'arborescence"""
+        max_depth = max(self.url_depth.values()) if self.url_depth else 0
+
+        # Compte les pages par profondeur
+        pages_by_depth = {}
+        for url, depth in self.url_depth.items():
+            pages_by_depth[depth] = pages_by_depth.get(depth, 0) + 1
+
+        return {
+            'total_pages': len(self.found_urls),
+            'max_depth': max_depth,
+            'pages_by_depth': pages_by_depth
+        }
+
 
 def main():
     """Fonction principale"""
@@ -156,14 +276,31 @@ def main():
     for i, page in enumerate(pages, 1):
         print(f"{i}. {page}")
 
+    # Affiche l'arborescence
+    scraper.print_tree()
+
+    # Affiche les statistiques
+    stats = scraper.get_tree_stats()
+    print(f"{'='*60}")
+    print(f"STATISTIQUES DE L'ARBORESCENCE")
+    print(f"{'='*60}")
+    print(f"Profondeur maximale: {stats['max_depth']}")
+    print(f"\nRépartition des pages par profondeur:")
+    for depth in sorted(stats['pages_by_depth'].keys()):
+        count = stats['pages_by_depth'][depth]
+        print(f"  Niveau {depth}: {count} page(s)")
+    print()
+
     # Sauvegarde les résultats
     scraper.save_to_json()
     scraper.save_to_txt()
+    scraper.save_tree_to_json()
 
-    print(f"\n{'='*60}")
+    print(f"{'='*60}")
     print(f"Résultats sauvegardés dans:")
-    print(f"  - quadratic_labs_pages.json")
-    print(f"  - quadratic_labs_pages.txt")
+    print(f"  - quadratic_labs_pages.json (liste simple)")
+    print(f"  - quadratic_labs_pages.txt (liste texte)")
+    print(f"  - quadratic_labs_tree.json (arborescence hiérarchique)")
     print(f"{'='*60}\n")
 
 

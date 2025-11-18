@@ -1,6 +1,7 @@
 # Fichiers de résultats du scraper
 quadratic_labs_pages.json
 quadratic_labs_pages.txt
+quadratic_labs_tree.json
 
 # Python
 __pycache__/
