@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Output files
+output/*.json
+output/*.csv
+output/*.txt
+!output/.gitkeep
+
+# Data files
+data/*
+!data/.gitkeep
+
+# Logs
+logs/*.log
+!logs/.gitkeep
+
+# Temporary files
+*.html
+*.tmp
+.DS_Store
