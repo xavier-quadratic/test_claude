@@ -247,9 +247,8 @@ class AJScraperPipeline:
         print(f"Mode: {'Selenium' if self.use_selenium else 'Requests'}")
 
         try:
-            # Phase 1
-            if not self.skip_phase1:
-                self.phase1_extract_administrateurs()
+            # Phase 1 (toujours appelée, gère le skip en interne)
+            self.phase1_extract_administrateurs()
 
             # Phase 2
             if not self.skip_phase2:
