@@ -250,9 +250,8 @@ class AJScraperPipeline:
             # Phase 1 (toujours appelée, gère le skip en interne)
             self.phase1_extract_administrateurs()
 
-            # Phase 2
-            if not self.skip_phase2:
-                self.phase2_analyze_sites()
+            # Phase 2 (toujours appelée, gère le skip en interne)
+            self.phase2_analyze_sites()
 
             # Phase 3
             self.phase3_extract_and_filter_annonces()
